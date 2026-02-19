@@ -7,12 +7,25 @@ import altair as alt
 # --- 1. CONFIG & STYLING ---
 st.set_page_config(page_title="dd | Spatial Risk Engine", layout="wide", initial_sidebar_state="expanded")
 
+# Strict Black Background & White Text
 st.markdown("""
     <style>
-    div[data-testid="metric-container"] {
-        background-color: #1E1E1E; border: 1px solid #333; padding: 5%; border-radius: 8px;
+    .stApp {
+        background-color: #000000;
     }
-    h1, h2, h3, p { color: #E0E0E0; font-family: 'Helvetica Neue', sans-serif; }
+    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp span, .stApp label {
+        color: #FFFFFF !important;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+    div[data-testid="metric-container"] {
+        background-color: #121212 !important; 
+        border: 1px solid #333 !important; 
+        padding: 5%; 
+        border-radius: 8px;
+    }
+    div[data-baseweb="select"] > div {
+        background-color: #121212 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -26,7 +39,6 @@ def load_data():
         "fuel": [95, 75, 88, 60, 10],
         "slope": [40, 35, 42, 22, 2],
     })
-    # Rounding VOR for clean tooltip display
     zones["vor"] = ((zones["fuel"] * zones["slope"]) / 100).round(1)
     zones["height"] = zones["vor"] * 250 
     
@@ -48,10 +60,13 @@ st.divider()
 col_map, col_analytics = st.columns([2.5, 1.5], gap="large")
 
 with col_analytics:
-    st.subheader("Layer Controls")
-    # Toggles to control visual clutter
-    show_towers = st.toggle("Show VOR Site Towers", value=True)
+    st.subheader("Layer Controls & Legend")
+    
     show_heatmap = st.toggle("Show Regional Risk Hexagons", value=True)
+    st.caption("**Hexagons:** Represents the macro-level environmental exposure (e.g., CAL FIRE hazard zones). The glowing honeycomb grid shows the baseline ambient threat across the region.")
+    
+    show_towers = st.toggle("Show VOR Site Towers", value=True)
+    st.caption("**Towers:** Represents specific dd (dexdogs) project sites. The height is the VOR (Value of Risk) score, proving exactly how much thermal stress that specific building envelope must withstand.")
     
     st.divider()
     
@@ -68,9 +83,9 @@ with col_analytics:
         "Factor": ["Fuel Density", "Slope Gradient"], 
         "Impact Value": [site_data['fuel'], site_data['slope']]
     })).mark_bar(color='#FF4B4B', opacity=0.8).encode(
-        x=alt.X('Impact Value:Q', title=None),
-        y=alt.Y('Factor:N', sort='-x', title=None)
-    ).properties(height=120).configure_view(strokeOpacity=0)
+        x=alt.X('Impact Value:Q', title=None, axis=alt.Axis(grid=False, labels=False, ticks=False)),
+        y=alt.Y('Factor:N', sort='-x', title=None, axis=alt.Axis(labelColor='white'))
+    ).properties(height=120).configure_view(strokeOpacity=0).configure(background='#000000')
     
     st.altair_chart(chart, use_container_width=True)
 
@@ -84,7 +99,6 @@ with col_analytics:
 with col_map:
     layers = []
     
-    # Layer 1: Background Risk (Toggleable)
     if show_heatmap:
         layers.append(pdk.Layer(
             "HexagonLayer",
@@ -94,10 +108,9 @@ with col_map:
             pickable=False,
             extruded=True,
             coverage=0.8,
-            get_fill_color=["risk * 2", "50", "150", 100], # 100 alpha for transparency
+            get_fill_color=["risk * 2", "50", "150", 100], 
         ))
 
-    # Layer 2: The dd Towers (Toggleable)
     if show_towers:
         layers.append(pdk.Layer(
             "ColumnLayer",
@@ -106,15 +119,14 @@ with col_map:
             get_elevation="height",
             elevation_scale=1,
             radius=1200,
-            get_fill_color=[255, 75, 75, 220], # 220 alpha so they stand out but aren't entirely solid
+            get_fill_color=[255, 75, 75, 220],
             pickable=True,
             auto_highlight=True,
         ))
 
-    # Clean Tooltip passing exact dataframe columns
     tooltip = {
         "html": "<b>{zone}</b><br/>VOR: {vor}<br/>Fuel: {fuel}% | Slope: {slope}°",
-        "style": {"backgroundColor": "#1E1E1E", "color": "white", "fontFamily": "Helvetica"}
+        "style": {"backgroundColor": "#121212", "color": "#FFFFFF", "fontFamily": "Helvetica", "border": "1px solid #333"}
     }
 
     r = pdk.Deck(
