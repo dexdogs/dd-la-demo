@@ -6,7 +6,7 @@ import pydeck as pdk
 st.set_page_config(page_title="dd: 3D Resilience Engine", layout="wide")
 
 # --- DATASET ---
-# Adjusted height multiplier to keep towers short
+# VOR = (Fuel * Slope) / 100. 
 data = pd.DataFrame({
     "zone": ["Malibu", "Hollywood Hills", "Altadena", "Pasadena", "Downtown LA"],
     "lat": [34.0259, 34.1235, 34.1867, 34.1478, 34.0407],
@@ -16,67 +16,83 @@ data = pd.DataFrame({
 })
 
 data["vor"] = (data["fuel"] * data["slope"]) / 100
-# Lowered height factor from 500 to 150 to keep them short
-data["height"] = data["vor"] * 150 
-
-def interpret_vor(val):
-    if val > 30:
-        return "CRITICAL: Flash-over high probability. Requires Non-Combustible Type I/II materials."
-    elif val > 15:
-        return "ELEVATED: Ember-storm zone. Requires WUI-compliant ignition-resistant cladding."
-    else:
-        return "NOMINAL: Low fuel load. Standard IBC residential framing acceptable."
+data["height"] = data["vor"] * 120  # Subtle, short towers
 
 # --- UI ---
 st.title("🔥 dd (Dexdogs) 3D VOR Analytics")
-st.subheader("Spatial Risk Extrusion: LA & Altadena Residential Zones")
+st.caption("Overlay: CAL FIRE Hazard Severity Zones (Simulated) + dd Spatial Risk")
 
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    # 3D Map Layer
-    layer = pdk.Layer(
+    # 1. HEATMAP LAYER (Simulating Wildfire Risk Data Set)
+    heatmap_layer = pdk.Layer(
+        "HeatmapLayer",
+        data,
+        get_position=["lon", "lat"],
+        get_weight="fuel",
+        radius_pixels=100,
+        opacity=0.4,
+    )
+
+    # 2. VOR COLUMN LAYER (Your Analytics)
+    column_layer = pdk.Layer(
         "ColumnLayer",
         data,
         get_position=["lon", "lat"],
         get_elevation="height",
-        elevation_scale=1, # Kept at 1 for true-to-data height
-        radius=1200,       # Slightly wider for better visibility
-        get_fill_color=["vor * 5", "205 - (vor * 3)", 150, 200],
+        elevation_scale=1,
+        radius=1000,
+        get_fill_color=["vor * 6", "150 - (vor * 2)", 200, 200],
         pickable=True,
         auto_highlight=True,
     )
 
     view_state = pdk.ViewState(
-        latitude=34.10, longitude=-118.40, zoom=9, pitch=40, bearing=0
+        latitude=34.10, longitude=-118.40, zoom=9, pitch=45, bearing=0
     )
 
-    # Switched to 'light' or 'dark' (non-mapbox styles) to fix the white background issue
+    # Using CartoDB Dark Matter for the map background
     r = pdk.Deck(
-        layers=[layer],
+        layers=[heatmap_layer, column_layer],
         initial_view_state=view_state,
-        map_style=None, # Uses the default simple base map
-        tooltip={"text": "{zone}\nVOR: {vor}"}
+        map_style="mapbox://styles/mapbox/dark-v11", # High-contrast dark
+        tooltip={"text": "{zone}\nVOR Score: {vor}\nFuel: {fuel}% | Slope: {slope}°"}
     )
     st.pydeck_chart(r)
 
 with col2:
-    st.write("### VOR Intelligence")
-    selection = st.selectbox("Select Zone", data["zone"])
+    st.write("### 📊 Advanced Site Analytics")
+    selection = st.selectbox("Deep Dive Zone", data["zone"])
     row = data[data["zone"] == selection].iloc[0]
     
-    st.metric("VOR Score", row["vor"])
+    # Grid of Metrics
+    m1, m2 = st.columns(2)
+    m1.metric("VOR Score", row["vor"])
+    m2.metric("Fuel Load", f"{row['fuel']}%")
     
-    with st.expander("📝 What is VOR?"):
-        st.write(f"**VOR (Value of Risk)** is a measure of potential fire intensity at a specific building site. At a score of **{row['vor']}**, the {selection} zone faces thermal stress levels that exceed standard residential wood-frame capacity.")
-        st.info(interpret_vor(row["vor"]))
+    m3, m4 = st.columns(2)
+    m3.metric("Slope Gradient", f"{row['slope']}°")
+    m4.metric("Risk Level", "Critical" if row["vor"] > 30 else "Moderate")
 
     st.divider()
-    if row["vor"] > 25:
-        st.error("**Spec:** Mineral Wool + 3-coat Stucco")
-        st.caption("Resilience Rating: High | Carbon Premium: +22%")
+    
+    # Material Logic
+    st.write("#### Prescription Specs")
+    if row["vor"] > 30:
+        st.error(f"**Zone:** {selection}\n\n**Material:** UHPC + Ember-Resistant Multi-pane Windows.")
     else:
-        st.success("**Spec:** Fire-treated Sheathing")
-        st.caption("Resilience Rating: Standard | Carbon Premium: +4%")
+        st.success(f"**Zone:** {selection}\n\n**Material:** Standard Fire-Treated Wood Frame.")
 
-st.sidebar.info("Map Fix: Background is now active. Towers scaled down for clarity.")
+    with st.expander("🔍 VOR Definition"):
+        st.write("""
+        **Value of Risk (VOR)** is the dd-proprietary intersection of topography and combustible fuel. 
+        It converts 'scary' climate data into a specification tool for residential builders.
+        """)
+
+st.sidebar.markdown("""
+### Map Settings
+- **Theme:** Dark Matter
+- **Overlay:** Fire Severity Heatmap
+- **Data Source:** dd Risk Engine
+""")
