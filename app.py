@@ -5,7 +5,7 @@ import pydeck as pdk
 import altair as alt
 
 # --- 1. CONFIG & STYLING ---
-st.set_page_config(page_title="dd | Spatial Risk Engine", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Risk-to-Spec Engine demo: Wildfire // dexdogs", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
@@ -49,7 +49,7 @@ def load_data():
 zones_df, bg_df = load_data()
 
 # --- 3. UI DASHBOARD ---
-st.title("🔥 dd: Climate-to-Spec Analytics")
+st.title("Risk-to-Spec Engine demo: Wildfire // dexdogs")
 st.markdown("Quantifying environmental exposure to optimize low-carbon residential construction in Los Angeles.")
 st.divider()
 
@@ -61,7 +61,7 @@ with col_analytics:
     show_heatmap = st.toggle("Show Regional Risk Hexagons", value=True)
     st.caption("**Hexagons:** Represents macro-level environmental exposure. Hovering over a honeycomb displays the aggregated regional risk density.")
     
-    show_towers = st.toggle("Show VOR Site Towers", value=True)
+    show_towers = st.toggle("Show Value-of-Resilience (VOR) Site Towers", value=True)
     st.caption("**Towers:** Represents specific dd (dexdogs) project sites. The height is the VOR (Value of Risk) score.")
     
     st.divider()
