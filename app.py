@@ -4,21 +4,24 @@ import numpy as np
 import pydeck as pdk
 import altair as alt
 
+# --- 1. CONFIG & STYLING ---
 st.set_page_config(page_title="dd | Spatial Risk Engine", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
     .stApp { background-color: #000000; }
-    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp span, .stApp label {
+    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp span, .stApp label {
         color: #FFFFFF !important; font-family: 'Helvetica Neue', sans-serif;
     }
-    div[data-testid="metric-container"], div[data-baseweb="select"] > div {
+    div[data-testid="metric-container"] {
         background-color: #121212 !important; border: 1px solid #333 !important; 
+        padding: 5%; border-radius: 8px;
     }
-    div[data-testid="metric-container"] { padding: 5%; border-radius: 8px; }
+    div[data-baseweb="select"] > div { background-color: #121212 !important; }
     </style>
     """, unsafe_allow_html=True)
 
+# --- 2. DATA GENERATION ---
 @st.cache_data
 def load_data():
     zones = pd.DataFrame({
@@ -31,25 +34,22 @@ def load_data():
     })
     zones["vor"] = ((zones["fuel"] * zones["slope"]) / 100).round(1)
     zones["height"] = zones["vor"] * 250 
-    zones["regional_risk"] = "Site Specific"
     
-    # Pre-calculated grid to preserve text data (replaces auto-aggregation)
-    lats, lons = np.meshgrid(np.linspace(33.8, 34.3, 45), np.linspace(-118.6, -118.1, 45))
-    bg = pd.DataFrame({'lat': lats.flatten(), 'lon': lons.flatten()})
-    
-    bg = bg[~((bg['lat'] < 34.04) & (bg['lon'] < -118.52))] 
-    bg = bg[~((bg['lat'] < 33.95) & (bg['lon'] < -118.45))] 
-    bg = bg[~((bg['lat'] < 33.78) & (bg['lon'] < -118.40))] 
-    
-    bg['regional_risk'] = np.random.uniform(10, 100, len(bg)).round(1)
-    bg['height'] = bg['regional_risk'] * 5 
-    bg['zone'] = "Ambient Grid"
-    bg['city_county'] = "(LA County Area)"
-    bg['vor'] = "Regional Average"
+    np.random.seed(42)
+    bg = pd.DataFrame({
+        'lat': np.random.normal(34.15, 0.15, 3000), 
+        'lon': np.random.normal(-118.40, 0.30, 3000), 
+        'risk': np.random.uniform(10, 100, 3000)
+    })
+    # Filter: Remove water coordinates (approx. South/West of LA Coast)
+    bg = bg[~((bg['lat'] < 34.04) & (bg['lon'] < -118.52))] # Malibu coast
+    bg = bg[~((bg['lat'] < 33.95) & (bg['lon'] < -118.45))] # LAX coast
+    bg = bg[~((bg['lat'] < 33.78) & (bg['lon'] < -118.40))] # Palos Verdes
     return zones, bg
 
 zones_df, bg_df = load_data()
 
+# --- 3. UI DASHBOARD ---
 st.title("🔥 dd: Climate-to-Spec Analytics")
 st.markdown("Quantifying environmental exposure to optimize low-carbon residential construction in Los Angeles.")
 st.divider()
@@ -58,8 +58,12 @@ col_map, col_analytics = st.columns([2.5, 1.5], gap="large")
 
 with col_analytics:
     st.subheader("Layer Controls & Legend")
+    
     show_heatmap = st.toggle("Show Regional Risk Hexagons", value=True)
+    st.caption("**Hexagons:** Represents macro-level environmental exposure. Hovering over a honeycomb displays the aggregated regional risk density.")
+    
     show_towers = st.toggle("Show VOR Site Towers", value=True)
+    st.caption("**Towers:** Represents specific dd (dexdogs) project sites. The height is the VOR (Value of Risk) score.")
     
     st.divider()
     st.subheader("Site Intelligence")
@@ -77,16 +81,18 @@ with col_analytics:
         x=alt.X('Impact Value:Q', title=None, axis=alt.Axis(grid=False, labels=False, ticks=False)),
         y=alt.Y('Factor:N', sort='-x', title=None, axis=alt.Axis(labelColor='white'))
     ).properties(height=120).configure_view(strokeOpacity=0).configure(background='#000000')
+    
     st.altair_chart(chart, use_container_width=True)
 
+    # Specific material EPDS 
     if site_data['vor'] > 30:
-        st.error("**Spec:** Holcim ECOPact LC3 + Rockwool Comfortbatt.")
+        st.error("**Spec:** Holcim ECOPact LC3 + Rockwool Comfortbatt.\n\n*Impact: -45% embodied carbon vs standard non-combustible assembly.*")
         st.markdown("[🔗 Holcim EPD](https://www.holcim.us/ecopact) | [🔗 Rockwool EPD](https://www.rockwool.com/north-america/about-us/sustainability/)")
     elif site_data['vor'] > 15:
-        st.warning("**Spec:** James Hardie Fiber Cement (Limestone-based).")
+        st.warning("**Spec:** James Hardie Fiber Cement (Limestone-based).\n\n*Impact: Ignition-resistant with moderate carbon footprint.*")
         st.markdown("[🔗 James Hardie EPD](https://www.jameshardie.com/about-us/sustainability)")
     else:
-        st.success("**Spec:** FSC-Certified Mass Timber & Glulam.")
+        st.success("**Spec:** FSC-Certified Mass Timber & Glulam.\n\n*Impact: Baseline standard. Focus on operational carbon.*")
         st.markdown("[🔗 WoodWorks Timber EPD](https://www.woodworks.org/resources/environmental-product-declarations/)")
 
 with col_map:
@@ -94,16 +100,14 @@ with col_map:
     
     if show_heatmap:
         layers.append(pdk.Layer(
-            "ColumnLayer", # 6-sided column simulates a hexagon but keeps dataframe intact
+            "HexagonLayer",
             bg_df,
             get_position=["lon", "lat"],
-            get_elevation="height",
-            elevation_scale=1,
-            radius=600,
-            disk_resolution=6, 
-            get_fill_color=["regional_risk * 2", "50", "150", 100], 
-            pickable=True,
-            auto_highlight=True,
+            elevation_scale=10,
+            pickable=True, # Enabled to allow analytics hover
+            extruded=True,
+            coverage=0.8,
+            get_fill_color=["risk * 2", "50", "150", 100], 
         ))
 
     if show_towers:
@@ -119,8 +123,9 @@ with col_map:
             auto_highlight=True,
         ))
 
+    # Universal Tooltip adjusting to both layers
     tooltip = {
-        "html": "<b>{zone} {city_county}</b><br/>Site VOR: {vor}<br/>Aggregated Regional Risk: {regional_risk}",
+        "html": "<b>{zone} {city_county}</b><br/>Site VOR: {vor}<br/>Aggregated Regional Risk: {elevationValue}",
         "style": {"backgroundColor": "#121212", "color": "#FFFFFF", "fontFamily": "Helvetica", "border": "1px solid #333"}
     }
 
