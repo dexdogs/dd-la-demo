@@ -26,6 +26,7 @@ st.markdown("""
 def load_data():
     zones = pd.DataFrame({
         "zone": ["Malibu", "Hollywood Hills", "Altadena", "Pasadena", "Downtown LA"],
+        "city_county": ["(Malibu City)", "(Los Angeles)", "(LA County)", "(Pasadena City)", "(Los Angeles)"],
         "lat": [34.0259, 34.1235, 34.1867, 34.1478, 34.0407],
         "lon": [-118.7798, -118.3217, -118.1312, -118.1445, -118.2468],
         "fuel": [95, 75, 88, 60, 10],
@@ -35,22 +36,22 @@ def load_data():
     zones["height"] = zones["vor"] * 250 
     
     np.random.seed(42)
-    bg_lats = np.random.normal(34.15, 0.15, 3000)
-    bg_lons = np.random.normal(-118.40, 0.30, 3000)
-    
+    bg = pd.DataFrame({
+        'lat': np.random.normal(34.15, 0.15, 3000), 
+        'lon': np.random.normal(-118.40, 0.30, 3000), 
+        'risk': np.random.uniform(10, 100, 3000)
+    })
     # Filter: Remove water coordinates (approx. South/West of LA Coast)
-    bg = pd.DataFrame({'lat': bg_lats, 'lon': bg_lons, 'risk': np.random.uniform(10, 100, 3000)})
     bg = bg[~((bg['lat'] < 34.04) & (bg['lon'] < -118.52))] # Malibu coast
     bg = bg[~((bg['lat'] < 33.95) & (bg['lon'] < -118.45))] # LAX coast
     bg = bg[~((bg['lat'] < 33.78) & (bg['lon'] < -118.40))] # Palos Verdes
-    
     return zones, bg
 
 zones_df, bg_df = load_data()
 
 # --- 3. UI DASHBOARD ---
 st.title("Risk-to-Spec Engine demo: Wildfire // dexdogs")
-st.markdown("Quantifying environmental exposure to optimize low-carbon residential construction in Los Angeles.")
+st.markdown("Quantifying risk exposure to optimize low-carbon construction")
 st.divider()
 
 col_map, col_analytics = st.columns([2.5, 1.5], gap="large")
@@ -61,7 +62,7 @@ with col_analytics:
     show_heatmap = st.toggle("Show Regional Risk Hexagons", value=True)
     st.caption("**Hexagons:** Represents macro-level environmental exposure. Hovering over a honeycomb displays the aggregated regional risk density.")
     
-    show_towers = st.toggle("Show Value-of-Resilience (VOR) Site Towers", value=True)
+    show_towers = st.toggle("Show VOR Site Towers", value=True)
     st.caption("**Towers:** Represents specific dd (dexdogs) project sites. The height is the VOR (Value of Risk) score.")
     
     st.divider()
@@ -122,13 +123,9 @@ with col_map:
             auto_highlight=True,
         ))
 
-    # Custom JS Tooltip logic to handle both layers dynamically
+    # Universal Tooltip adjusting to both layers
     tooltip = {
-        "html": """
-            <b>{zone}</b>
-            <br/>
-            <b>Risk Metrics:</b> {vor} {elevationValue}
-        """,
+        "html": "<b>{zone} {city_county}</b><br/>Site VOR: {vor}<br/>Aggregated Regional Risk: {elevationValue}",
         "style": {"backgroundColor": "#121212", "color": "#FFFFFF", "fontFamily": "Helvetica", "border": "1px solid #333"}
     }
 
