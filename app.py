@@ -62,8 +62,8 @@ with col_analytics:
     show_heatmap = st.toggle("Show Regional Risk Hexagons", value=True)
     st.caption("**Hexagons:** Represents macro-level environmental exposure. Hovering over a honeycomb displays the aggregated regional risk density.")
     
-    show_towers = st.toggle("Show Values of Risk (VOR) Site Towers", value=True)
-    st.caption("**Towers:** Represents potential sites for new construction. The height is the VOR (Values of Risk) score.")
+    show_towers = st.toggle("Show Value of Risk (VOR) Site Towers", value=True)
+    st.caption("**Towers:** Represents potential sites for new construction. The height is the VOR (Value of Risk) score.")
     
     st.divider()
     st.subheader("Site Intelligence")
