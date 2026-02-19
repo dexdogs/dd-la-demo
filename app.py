@@ -5,27 +5,19 @@ import pydeck as pdk
 import altair as alt
 
 # --- 1. CONFIG & STYLING ---
-st.set_page_config(page_title="Risks-to-Specs Engine: Wildfire // dexdogs", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="dd | Spatial Risk Engine", layout="wide", initial_sidebar_state="expanded")
 
-# Strict Black Background & White Text
 st.markdown("""
     <style>
-    .stApp {
-        background-color: #000000;
-    }
+    .stApp { background-color: #000000; }
     .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp span, .stApp label {
-        color: #FFFFFF !important;
-        font-family: 'Helvetica Neue', sans-serif;
+        color: #FFFFFF !important; font-family: 'Helvetica Neue', sans-serif;
     }
     div[data-testid="metric-container"] {
-        background-color: #121212 !important; 
-        border: 1px solid #333 !important; 
-        padding: 5%; 
-        border-radius: 8px;
+        background-color: #121212 !important; border: 1px solid #333 !important; 
+        padding: 5%; border-radius: 8px;
     }
-    div[data-baseweb="select"] > div {
-        background-color: #121212 !important;
-    }
+    div[data-baseweb="select"] > div { background-color: #121212 !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -43,17 +35,21 @@ def load_data():
     zones["height"] = zones["vor"] * 250 
     
     np.random.seed(42)
-    bg = pd.DataFrame({
-        'lat': np.random.normal(34.15, 0.15, 2000), 
-        'lon': np.random.normal(-118.40, 0.30, 2000), 
-        'risk': np.random.uniform(10, 100, 2000)
-    })
+    bg_lats = np.random.normal(34.15, 0.15, 3000)
+    bg_lons = np.random.normal(-118.40, 0.30, 3000)
+    
+    # Filter: Remove water coordinates (approx. South/West of LA Coast)
+    bg = pd.DataFrame({'lat': bg_lats, 'lon': bg_lons, 'risk': np.random.uniform(10, 100, 3000)})
+    bg = bg[~((bg['lat'] < 34.04) & (bg['lon'] < -118.52))] # Malibu coast
+    bg = bg[~((bg['lat'] < 33.95) & (bg['lon'] < -118.45))] # LAX coast
+    bg = bg[~((bg['lat'] < 33.78) & (bg['lon'] < -118.40))] # Palos Verdes
+    
     return zones, bg
 
 zones_df, bg_df = load_data()
 
 # --- 3. UI DASHBOARD ---
-st.title("Risks-to-Specs Engine: Wildfire // dexdogs")
+st.title("🔥 dd: Climate-to-Spec Analytics")
 st.markdown("Quantifying environmental exposure to optimize low-carbon residential construction in Los Angeles.")
 st.divider()
 
@@ -63,13 +59,12 @@ with col_analytics:
     st.subheader("Layer Controls & Legend")
     
     show_heatmap = st.toggle("Show Regional Risk Hexagons", value=True)
-    st.caption("**Hexagons:** Represents the macro-level environmental exposure (e.g., CAL FIRE hazard zones). The glowing honeycomb grid shows the baseline ambient threat across the region.")
+    st.caption("**Hexagons:** Represents macro-level environmental exposure. Hovering over a honeycomb displays the aggregated regional risk density.")
     
     show_towers = st.toggle("Show VOR Site Towers", value=True)
-    st.caption("**Towers:** Represents specific dd (dexdogs) project sites. The height is the VOR (Value of Risk) score, proving exactly how much thermal stress that specific building envelope must withstand.")
+    st.caption("**Towers:** Represents specific dd (dexdogs) project sites. The height is the VOR (Value of Risk) score.")
     
     st.divider()
-    
     st.subheader("Site Intelligence")
     selected_zone = st.selectbox("Select Residential Zone", zones_df["zone"])
     site_data = zones_df[zones_df["zone"] == selected_zone].iloc[0]
@@ -78,7 +73,6 @@ with col_analytics:
     m1.metric("VOR Score", site_data['vor'])
     m2.metric("Gradient", f"{site_data['slope']}°")
     
-    # Analytics Chart
     chart = alt.Chart(pd.DataFrame({
         "Factor": ["Fuel Density", "Slope Gradient"], 
         "Impact Value": [site_data['fuel'], site_data['slope']]
@@ -89,12 +83,16 @@ with col_analytics:
     
     st.altair_chart(chart, use_container_width=True)
 
+    # Specific material EPDS 
     if site_data['vor'] > 30:
-        st.error("**Spec:** LC3 Cement + Mineral Wool Cavity Insulation.\n\n*Impact: -45% embodied carbon vs standard non-combustible assembly.*")
+        st.error("**Spec:** Holcim ECOPact LC3 + Rockwool Comfortbatt.\n\n*Impact: -45% embodied carbon vs standard non-combustible assembly.*")
+        st.markdown("[🔗 Holcim EPD](https://www.holcim.us/ecopact) | [🔗 Rockwool EPD](https://www.rockwool.com/north-america/about-us/sustainability/)")
     elif site_data['vor'] > 15:
-        st.warning("**Spec:** Limestone-based Fiber Cement Siding.\n\n*Impact: Ignition-resistant with moderate carbon footprint.*")
+        st.warning("**Spec:** James Hardie Fiber Cement (Limestone-based).\n\n*Impact: Ignition-resistant with moderate carbon footprint.*")
+        st.markdown("[🔗 James Hardie EPD](https://www.jameshardie.com/about-us/sustainability)")
     else:
-        st.success("**Spec:** FSC-Certified Timber Framing.\n\n*Impact: Baseline standard. Focus on operational carbon.*")
+        st.success("**Spec:** FSC-Certified Mass Timber & Glulam.\n\n*Impact: Baseline standard. Focus on operational carbon.*")
+        st.markdown("[🔗 WoodWorks Timber EPD](https://www.woodworks.org/resources/environmental-product-declarations/)")
 
 with col_map:
     layers = []
@@ -105,7 +103,7 @@ with col_map:
             bg_df,
             get_position=["lon", "lat"],
             elevation_scale=10,
-            pickable=False,
+            pickable=True, # Enabled to allow analytics hover
             extruded=True,
             coverage=0.8,
             get_fill_color=["risk * 2", "50", "150", 100], 
@@ -124,8 +122,9 @@ with col_map:
             auto_highlight=True,
         ))
 
+    # Universal Tooltip adjusting to both layers
     tooltip = {
-        "html": "<b>{zone}</b><br/>VOR: {vor}<br/>Fuel: {fuel}% | Slope: {slope}°",
+        "html": "<b>Data: {zone}</b><br/>Site VOR: {vor}<br/>Aggregated Hex Risk: {elevationValue}",
         "style": {"backgroundColor": "#121212", "color": "#FFFFFF", "fontFamily": "Helvetica", "border": "1px solid #333"}
     }
 
