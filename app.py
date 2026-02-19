@@ -122,9 +122,13 @@ with col_map:
             auto_highlight=True,
         ))
 
-    # Universal Tooltip adjusting to both layers
+    # Custom JS Tooltip logic to handle both layers dynamically
     tooltip = {
-        "html": "<b>Data: {zone}</b><br/>Site VOR: {vor}<br/>Aggregated Hex Risk: {elevationValue}",
+        "html": """
+            <b>{zone}</b>
+            <br/>
+            <b>Risk Metrics:</b> {vor} {elevationValue}
+        """,
         "style": {"backgroundColor": "#121212", "color": "#FFFFFF", "fontFamily": "Helvetica", "border": "1px solid #333"}
     }
 
