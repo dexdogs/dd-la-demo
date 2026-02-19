@@ -51,7 +51,7 @@ zones_df, bg_df = load_data()
 
 # --- 3. UI DASHBOARD ---
 st.title("Risks-to-Specs Engine demo: Wildfire // dexdogs")
-st.markdown("Quantifying environmental exposure to optimize low-carbon residential construction in Los Angeles.")
+st.markdown("Quantifying risk exposure to optimize low-carbon construction.")
 st.divider()
 
 col_map, col_analytics = st.columns([2.5, 1.5], gap="large")
@@ -60,10 +60,10 @@ with col_analytics:
     st.subheader("Layer Controls & Legend")
     
     show_heatmap = st.toggle("Show Regional Risk Hexagons", value=True)
-    st.caption("**Hexagons:** Represents macro-level environmental exposure. Hovering over a honeycomb displays the aggregated regional risk density.")
+    st.caption("**Hexagons:** Represents macro-level risk exposure. Hovering over a honeycomb displays the aggregated regional risk density.")
     
     show_towers = st.toggle("Show Value of Risk (VOR) Site Towers", value=True)
-    st.caption("**Towers:** Represents potential sites for new construction. The height is the VOR (Value of Risk) score.")
+    st.caption("**Towers:** Represents potential sites. The height is the VOR (Value of Risk) score. VOR = (Fuel Density x Slope Gradient) / 100")
     
     st.divider()
     st.subheader("Site Intelligence")
